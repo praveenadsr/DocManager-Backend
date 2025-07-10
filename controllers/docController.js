@@ -20,14 +20,37 @@ const uploadDocument = async (req, res) => {
   }
 };
 
+
+
+
+
+
+
+
 const getDocuments = async (req, res) => {
   try {
-    const docs = await Document.find({ user: req.userId }).sort({ createdAt: -1 });
-    res.json(docs);
+    const docs = await Document.find({ user: req.userId }).sort({ createdAt: -1});
+
+    const baseUrl = `${req.protocol}://${req.get("host")}`; // auto uses IP or domain
+    const updatedDocs = docs.map(doc => ({
+      ...doc._doc,
+      fileUrl: `${baseUrl}/${doc.filePath.replace(/\\/g, '/')}`,
+    }));
+
+    res.json(updatedDocs);
   } catch (err) {
     res.status(500).json({ msg: "Error fetching documents", error: err.message });
   }
 };
+
+
+
+
+
+
+
+
+
 
 const getDocumentById = async (req, res) => {
   try {
@@ -54,17 +77,34 @@ const updateDocument = async (req, res) => {
   }
 };
 
+
+
+
 const deleteDocument = async (req, res) => {
   try {
+    console.log("DELETE request:", req.params.id, "User:", req.userId);
+
     const doc = await Document.findOneAndDelete({ _id: req.params.id, user: req.userId });
-    if (!doc) return res.status(404).json({ msg: "Document not found" });
+    if (!doc) {
+      console.warn("❌ Document not found or unauthorized");
+      return res.status(404).json({ msg: "Document not found" });
+    }
 
     fs.unlinkSync(doc.filePath); // remove file from disk
+    console.log("✅ Deleted file:", doc.filePath);
     res.json({ msg: "Deleted successfully" });
   } catch (err) {
+    console.error("❌ Delete error:", err.message);
     res.status(500).json({ msg: "Error deleting", error: err.message });
   }
 };
+
+
+
+
+
+
+
 
 module.exports = {
   uploadDocument,
