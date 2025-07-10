@@ -3,6 +3,8 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const docRoutes = require("./routes/docRoutes");
+const userRoutes = require('./routes/userRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 
 const authRoutes = require("./routes/authRoutes");
 
@@ -13,6 +15,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
+app.use('/api/user', userRoutes); // Mount point
+app.use("/api/dashboard", dashboardRoutes);
 
 // Routes
 app.use("/api", authRoutes);
