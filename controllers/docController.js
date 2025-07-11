@@ -4,34 +4,47 @@ const fs = require("fs");
 
 const uploadDocument = async (req, res) => {
   try {
+    console.log("📥 Upload request received");
+
     const { name } = req.body;
+    console.log("📝 Document Name:", name);
+
+    if (!req.file) {
+      console.warn("⚠️ No file uploaded");
+      return res.status(400).json({ msg: "No file uploaded" });
+    }
+
     const filePath = req.file.path;
+    const userId = req.user?.id;
+    console.log("👤 User ID from token:", userId);
+
+    if (!userId) return res.status(401).json({ msg: "Unauthorized" });
 
     const newDoc = new Document({
-      user: req.userId,
+      user: userId,
       name,
       filePath,
     });
 
     await newDoc.save();
+    console.log("✅ Document saved:", newDoc._id);
+
     res.status(201).json({ msg: "Document uploaded successfully", document: newDoc });
   } catch (err) {
+    console.error("❌ Upload failed:", err.message);
     res.status(500).json({ msg: "Failed to upload", error: err.message });
   }
 };
 
-
-
-
-
-
-
-
 const getDocuments = async (req, res) => {
   try {
-    const docs = await Document.find({ user: req.userId }).sort({ createdAt: -1});
+    const userId = req.user?.id;
+    console.log("📄 Fetching all documents for user:", userId);
 
-    const baseUrl = `${req.protocol}://${req.get("host")}`; // auto uses IP or domain
+    const docs = await Document.find({ user: userId }).sort({ createdAt: -1 });
+    console.log("📦 Total documents found:", docs.length);
+
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
     const updatedDocs = docs.map(doc => ({
       ...doc._doc,
       fileUrl: `${baseUrl}/${doc.filePath.replace(/\\/g, '/')}`,
@@ -39,72 +52,82 @@ const getDocuments = async (req, res) => {
 
     res.json(updatedDocs);
   } catch (err) {
+    console.error("❌ Error fetching documents:", err.message);
     res.status(500).json({ msg: "Error fetching documents", error: err.message });
   }
 };
 
-
-
-
-
-
-
-
-
-
 const getDocumentById = async (req, res) => {
   try {
-    const doc = await Document.findOne({ _id: req.params.id, user: req.userId });
-    if (!doc) return res.status(404).json({ msg: "Document not found" });
+    const userId = req.user?.id;
+    const docId = req.params.id;
+    console.log("📄 Fetching document ID:", docId, "User:", userId);
+
+    const doc = await Document.findOne({ _id: docId, user: userId });
+
+    if (!doc) {
+      console.warn("⚠️ Document not found");
+      return res.status(404).json({ msg: "Document not found" });
+    }
+
+    console.log("✅ Document found:", doc._id);
     res.json(doc);
   } catch (err) {
+    console.error("❌ Error fetching document:", err.message);
     res.status(500).json({ msg: "Error fetching document", error: err.message });
   }
 };
 
 const updateDocument = async (req, res) => {
   try {
+    const userId = req.user?.id;
+    const docId = req.params.id;
     const { name } = req.body;
+
+    console.log("✏️ Updating document ID:", docId, "User:", userId);
+    console.log("🔁 New name:", name);
+
     const doc = await Document.findOneAndUpdate(
-      { _id: req.params.id, user: req.userId },
+      { _id: docId, user: userId },
       { name },
       { new: true }
     );
-    if (!doc) return res.status(404).json({ msg: "Document not found" });
+
+    if (!doc) {
+      console.warn("⚠️ Document not found");
+      return res.status(404).json({ msg: "Document not found" });
+    }
+
+    console.log("✅ Document updated:", doc._id);
     res.json({ msg: "Updated", document: doc });
   } catch (err) {
+    console.error("❌ Error updating document:", err.message);
     res.status(500).json({ msg: "Error updating", error: err.message });
   }
 };
 
-
-
-
 const deleteDocument = async (req, res) => {
   try {
-    console.log("DELETE request:", req.params.id, "User:", req.userId);
+    const userId = req.user?.id;
+    const docId = req.params.id;
+    console.log("🗑️ Deleting document ID:", docId, "User:", userId);
 
-    const doc = await Document.findOneAndDelete({ _id: req.params.id, user: req.userId });
+    const doc = await Document.findOneAndDelete({ _id: docId, user: userId });
+
     if (!doc) {
-      console.warn("❌ Document not found or unauthorized");
+      console.warn("⚠️ Document not found or unauthorized");
       return res.status(404).json({ msg: "Document not found" });
     }
 
-    fs.unlinkSync(doc.filePath); // remove file from disk
-    console.log("✅ Deleted file:", doc.filePath);
+    fs.unlinkSync(doc.filePath);
+    console.log("✅ File removed from disk:", doc.filePath);
+
     res.json({ msg: "Deleted successfully" });
   } catch (err) {
-    console.error("❌ Delete error:", err.message);
+    console.error("❌ Error deleting document:", err.message);
     res.status(500).json({ msg: "Error deleting", error: err.message });
   }
 };
-
-
-
-
-
-
-
 
 module.exports = {
   uploadDocument,
